@@ -1,0 +1,88 @@
+#!/usr/bin/python3
+
+import argparse
+import json
+import os
+import sys
+import urllib.parse as parse
+import urllib.request as request
+from http import HTTPStatus
+
+from git import Repo
+
+api_path = '/api/v{:d}/projects/'
+
+
+def _exit(response):
+    print(str(response.read()))
+    sys.exit(1)
+
+
+def _read_json(response):
+    return json.loads(response.read().decode())
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser('Clone ALL repositories from GitLab server available to user')
+    parser.add_argument('token', type=str, help='GitLab secret token of the user')
+    parser.add_argument('server', type=str, help='URL of the GitLab server')
+    parser.add_argument('-b', '--branch', type=str, help='Checkout this branch after cloning')
+    parser.add_argument('-n', '--namespace', type=str, help='Only clone projects from this namespace')
+    parser.add_argument('-v', '--api-version', type=int, default=3, help='GitLab api version. Default: 3')
+    # parse and process args
+    args = parser.parse_args()
+    server_url = parse.urljoin(args.server, api_path.format(args.api_version))
+    header = {'PRIVATE-TOKEN': args.token}
+    proxy_support = request.ProxyHandler({})
+    opener = request.build_opener(proxy_support)
+    request.install_opener(opener)
+    # fetch pand process project data
+    req = request.Request(server_url)
+    req.headers.update(header)
+    projects = []
+    try:
+        num_pages = 1
+        print('Fetching 1 page of project infos.')
+        with request.urlopen(req) as response:
+            if response.getcode() == HTTPStatus.OK:
+                projects += _read_json(response)
+                num_pages = int(response.info()['X-Total-Pages'])
+            else:
+                exit(response)
+        for page_num in range(num_pages-1):
+            pn = page_num + 2
+            print('Fetching {} of {} page of project infos.'.format(pn, num_pages))
+            req.full_url = parse.urljoin(server_url, '?page={}'.format(pn))
+            with request.urlopen(req) as response:
+                if response.getcode() == HTTPStatus.OK:
+                    projects += _read_json(response)
+                else:
+                    exit(response)
+        num_projects = len(projects)
+        for i, p in enumerate(projects):
+            pdir = p['name']
+            if args.namespace:
+                ns = p['namespace']['name']
+                if args.namespace != p['namespace']['name']:
+                    print('Skipping {} from {} namespace...'.format(pdir, ns))
+                    continue
+            if os.path.isdir(p['name']):
+                print('Project {} already exists. Skipping...'.format(pdir))
+                continue
+            try:
+                os.mkdir(pdir)
+                repo = Repo.clone_from(p['ssh_url_to_repo'], pdir)
+                origin = repo.remote('origin')
+                for f in origin.fetch():
+                    pass
+                if args.branch and repo.active_branch.name != args.branch:
+                    for r in origin.refs:
+                        if r.name.split('/')[-1] == args.branch:
+                            repo.create_head(args.branch, r).set_tracking_branch(r).checkout()
+                print('Cloned {} of {}: {}'.format(i+1, num_projects, pdir))
+            except Exception as error:
+                print('Error while cloning {}:\n\t{}'.format(pdir, str(error)))
+                continue
+    except Exception as error:
+        print(str(error))
+        sys.exit(2)
