@@ -10,8 +10,15 @@ def print_fetch_info(action, info_iter, heads):
     for info in info_iter:
         head = heads.get(info.ref)
         if head and head.commit != info.commit:
-            head.commit = info.commit
-            print('{} {} -> {}'.format(action, head, info.ref))
+            if head.commit in info.commit.iter_parents():
+                head.commit = info.commit
+                print('{} {} -> {}'.format(action, head, info.ref))
+            else:
+                print('{} {} -> {}'.format(action, info.ref, info.commit))
+                if info.commit in head.commit.iter_parents():
+                    print('Local head {} is ahead of the remote.'.format(head))
+                else:
+                    print('Local head {} is on a different branch.'.format(head))
             if info.note:
                 print('NOTE: {}'.format(info.note))
 
