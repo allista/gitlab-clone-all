@@ -6,11 +6,14 @@ import os
 from git import Repo
 
 
-def print_fetch_info(action, info_iter):
+def print_fetch_info(action, info_iter, heads):
     for info in info_iter:
-        print('{} {} -> {}'.format(action, info.ref, info.commit))
-        if info.note:
-            print('NOTE: {}'.format(info.note))
+        head = heads.get(info.ref)
+        if head and head.commit != info.commit:
+            head.commit = info.commit
+            print('{} {} -> {}'.format(action, head, info.ref))
+            if info.note:
+                print('NOTE: {}'.format(info.note))
 
 
 if __name__ == '__main__':
@@ -30,10 +33,11 @@ if __name__ == '__main__':
                 origin = repo.remote('origin')
                 if not origin.exists():
                     continue
+                heads = {h.tracking_branch(): h for h in repo.heads}
                 if args.pull and not repo.is_dirty() and repo.active_branch.tracking_branch():
-                    print_fetch_info('Pulled', origin.pull())
+                    print_fetch_info('Pulled', origin.pull(), heads)
                 else:
-                    print_fetch_info('Fetched', origin.fetch())
+                    print_fetch_info('Fetched', origin.fetch(), heads)
                 print('{} updated\n'.format(path))
             except Exception as ex:
                 print('Error while updating {}:\n\t{!s}'.format(path, ex))
