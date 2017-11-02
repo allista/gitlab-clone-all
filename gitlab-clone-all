@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import sys
+import traceback
 import urllib.parse as parse
 import urllib.request as request
 from http import HTTPStatus
@@ -23,7 +24,7 @@ def _read_json(response):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('Clone ALL repositories from GitLab server available to user')
+    parser = argparse.ArgumentParser(description='Clone ALL repositories from GitLab server available to user')
     parser.add_argument('token', type=str, help='GitLab secret token of the user')
     parser.add_argument('server', type=str, help='URL of the GitLab server')
     parser.add_argument('-b', '--branch', type=str, help='Checkout this branch after cloning')
@@ -86,7 +87,7 @@ if __name__ == '__main__':
                             repo.create_head(args.branch, r).set_tracking_branch(r).checkout()
                 print('Cloned {} of {}: {}'.format(i+1, num_projects, pdir))
             except Exception as error:
-                print('Error while cloning {}:\n\t{}'.format(pdir, str(error)))
+                print('Error while cloning {}:\n{!s}\n{}'.format(pdir, error, traceback.format_exc()))
                 continue
     except Exception as error:
         print(str(error))

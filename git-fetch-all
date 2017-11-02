@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import traceback
 
 from git import Repo
 
@@ -24,7 +25,8 @@ def print_fetch_info(action, info_iter, heads):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('Fetches all branches of all the repositories found under the current directory')
+    parser = argparse.ArgumentParser(description='Fetch all branches of all the repositories '
+                                                 'found under the current directory')
     parser.add_argument('-p', '--pull', action='store_true',
                         help='Pull active branch if the working directory is clean')
     args = parser.parse_args()
@@ -47,4 +49,4 @@ if __name__ == '__main__':
                     print_fetch_info('Fetched', origin.fetch(), heads)
                 print('{} updated\n'.format(path))
             except Exception as ex:
-                print('Error while updating {}:\n\t{!s}'.format(path, ex))
+                print('Error while updating {}:\n{!s}\n{}'.format(path, ex, traceback.format_exc()))
