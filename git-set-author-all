@@ -1,0 +1,34 @@
+#!/usr/bin/python3
+
+import argparse
+import os
+import traceback
+
+from git import Repo
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Set author and email for all repos found under the current directory')
+    parser.add_argument('author', help='Author name')
+    parser.add_argument('email', nargs='?', default='', help='Author email')
+    args = parser.parse_args()
+    root = os.getcwd()
+    for entry in os.listdir('.'):
+        path = os.path.join(root, entry)
+        if os.path.isdir(path):
+            os.chdir(path)
+            try:
+                repo = Repo(path)
+                if repo.bare:
+                    continue
+                cfg = repo.config_writer()
+                if not cfg.has_section('user'):
+                    cfg.add_section('user')
+                cfg.set('user', 'name', args.author)
+                if args.email:
+                    cfg.set('user', 'email', args.email)
+                cfg.write()
+                print('{}: {} <{}>'.format(entry,
+                                                  cfg.get('user', 'name'),
+                                                  cfg.get('user', 'email') or 'no email'))
+            except Exception as ex:
+                print('Error while changing author info in {}:\n{!s}\n{}'.format(path, ex, traceback.format_exc()))
