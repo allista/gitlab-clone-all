@@ -4,7 +4,7 @@ import argparse
 import os
 import traceback
 
-from git import Repo
+from git import Repo, InvalidGitRepositoryError
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Set author and email for all repos found under the current directory')
@@ -17,7 +17,10 @@ if __name__ == '__main__':
         if os.path.isdir(path):
             os.chdir(path)
             try:
-                repo = Repo(path)
+                try:
+                    repo = Repo(path)
+                except InvalidGitRepositoryError:
+                    continue
                 if repo.bare:
                     continue
                 cfg = repo.config_writer()
