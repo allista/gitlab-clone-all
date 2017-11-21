@@ -7,13 +7,19 @@ import traceback
 from git import Repo, InvalidGitRepositoryError
 
 
-def print_fetch_info(action, info_iter, heads):
+def print_fetch_info(action, info_iter, heads, repo):
     for info in info_iter:
-        head = heads.get(info.ref)
-        if head and head.commit != info.commit:
-            if head.commit in info.commit.iter_parents():
-                head.commit = info.commit
+        head, commit = heads.get(info.ref, (None, None))
+        if head and commit != info.commit:
+            if head.commit == info.commit:
                 print('{} {} -> {}'.format(action, head, info.ref))
+            elif head.commit in info.commit.iter_parents():
+                if head != repo.head.ref or not repo.is_dirty():
+                    head.set_commit(info.commit)
+                    print('{} {} -> {}'.format(action, head, info.ref))
+                else:
+                    print('Working directory of {} branch is dirty!\n'
+                          '{} {} -> {}'.format(head.name, action, info.ref, info.commit))
             else:
                 print('{} {} -> {}'.format(action, info.ref, info.commit))
                 if info.commit in head.commit.iter_parents():
@@ -29,6 +35,10 @@ if __name__ == '__main__':
                                                  'found under the current directory')
     parser.add_argument('-p', '--pull', action='store_true',
                         help='Pull active branch if the working directory is clean')
+    parser.add_argument('-r', '--remote', type=str, default='origin',
+                        help='Use this remote. Default: "origin"')
+    parser.add_argument('-s', '--set-remote', action='store_true',
+                        help="Set remote of local heads that don't have one but have a remote head with the same name")
     args = parser.parse_args()
     root = os.getcwd()
     for entry in os.listdir('.'):
@@ -42,14 +52,25 @@ if __name__ == '__main__':
                     continue
                 if repo.bare:
                     continue
-                origin = repo.remote('origin')
-                if not origin.exists():
+                remote = repo.remote(args.remote)
+                if not remote.exists():
                     continue
-                heads = {h.tracking_branch(): h for h in repo.heads}
+                heads = {}
+                r_heads = {ref.remote_head: ref for ref in remote.refs}
+                for head in repo.heads:
+                    tb = head.tracking_branch()
+                    if tb:
+                        heads[tb] = (head, head.commit)
+                    elif args.set_remote:
+                        r_head = r_heads.get(head.name)
+                        if r_head:
+                            print('{} is now tracking {}'.format(head.name, r_head.name))
+                            head.set_tracking_branch(r_head)
+                            heads[r_head] = (head, head.commit)
                 if args.pull and not repo.is_dirty() and repo.active_branch.tracking_branch():
-                    print_fetch_info('Pulled', origin.pull(), heads)
+                    print_fetch_info('Pulled', remote.pull(), heads, repo)
                 else:
-                    print_fetch_info('Fetched', origin.fetch(), heads)
+                    print_fetch_info('Fetched', remote.fetch(), heads, repo)
                 print('{} updated\n'.format(path))
             except Exception as ex:
                 print('Error while updating {}:\n{!s}\n{}'.format(path, ex, traceback.format_exc()))
