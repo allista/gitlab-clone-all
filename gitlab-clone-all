@@ -83,7 +83,7 @@ if __name__ == '__main__':
                     pass
                 if args.branch and repo.active_branch.name != args.branch:
                     for r in origin.refs:
-                        if r.name.split('/')[-1] == args.branch:
+                        if r.remote_head == args.branch:
                             repo.create_head(args.branch, r).set_tracking_branch(r).checkout()
                 print('Cloned {} of {}: {}'.format(i+1, num_projects, pdir))
             except Exception as error:
