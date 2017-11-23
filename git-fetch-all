@@ -14,9 +14,12 @@ def print_fetch_info(action, info_iter, heads, repo):
             if head.commit == info.commit:
                 print('{} {} -> {}'.format(action, head, info.ref))
             elif head.commit in info.commit.iter_parents():
-                if head != repo.head.ref or not repo.is_dirty():
+                if head != repo.head.ref:
                     head.set_commit(info.commit)
                     print('{} {} -> {}'.format(action, head, info.ref))
+                elif not repo.is_dirty():
+                    repo.head.reset(info.commit, index=True, working_tree=True)
+                    print('{} {} -> {}'.format('Reset', head, info.ref))
                 else:
                     print('Working directory of {} branch is dirty!\n'
                           '{} {} -> {}'.format(head.name, action, info.ref, info.commit))
