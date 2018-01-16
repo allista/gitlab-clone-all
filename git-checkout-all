@@ -1,0 +1,52 @@
+#!/usr/bin/python3
+
+import argparse
+import os
+import traceback
+
+from git import Repo, InvalidGitRepositoryError
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Checkout a particular branch in all the repos if it exists')
+    parser.add_argument('branch', help='Local branch name. If local repo does not have this branch, '
+                                       'but the remote does, it is checked out instead as a new local branch')
+    parser.add_argument('remote', nargs='?', default='origin', help='Remote to check for the branch')
+    args = parser.parse_args()
+    root = os.getcwd()
+    for entry in os.listdir('.'):
+        path = os.path.join(root, entry)
+        if os.path.isdir(path):
+            os.chdir(path)
+            try:
+                try:
+                    repo = Repo(path)
+                except InvalidGitRepositoryError:
+                    continue
+                if repo.bare:
+                    continue
+                if repo.is_dirty():
+                    print('{} is dirty\n'.format(path))
+                    continue
+                try:
+                    local_head = repo.heads[args.branch]
+                except IndexError:
+                    local_head = None
+                if not local_head:
+                    remote = repo.remote(args.remote)
+                    if not remote.exists():
+                        print('Remote "{}" does not exist in {}\n'.format(args.remote, path))
+                        continue
+                    remote_head = {ref.remote_head: ref for ref in remote.refs}.get(args.branch)
+                    if not remote_head:
+                        print('Remote "{}" does not have "{}" branch in {}\n'.format(args.remote, args.branch, path))
+                        continue
+                    local_head = repo.create_head(args.branch, commit=remote_head.commit)
+                    local_head.set_tracking_branch(remote_head)
+                if local_head.commit != repo.head.commit:
+                    local_head.checkout()
+                    print('{} branch was checked out in {}\n'.format(local_head.name, path))
+                else:
+                    print('{} branch is already checked out in {}\n'.format(local_head.name, path))
+            except Exception as ex:
+                print('Error while checking out {} in {}:\n{!s}\n{}'
+                      .format(args.branch, path, ex, traceback.format_exc()))

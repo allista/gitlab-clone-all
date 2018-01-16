@@ -9,5 +9,5 @@ setup(
         author='Evgeny Taranov',
         author_email='evgeny.taranov@gmail.com',
         description='Clone all repositories from a gitlab server available to user',
-        scripts=['gitlab-clone-all', 'git-fetch-all', 'git-set-author-all'],
+        scripts=['gitlab-clone-all', 'git-fetch-all', 'git-set-author-all', 'git-checkout-all'],
 )
