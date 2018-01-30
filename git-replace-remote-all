@@ -1,0 +1,56 @@
+#!/usr/bin/python3
+
+import argparse
+import os
+import traceback
+
+from git import Repo, InvalidGitRepositoryError
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Replace parts of the urls of the remotes '
+                                                 'of all repos under the current directory.')
+    parser.add_argument('pattern', help='Search for this substring/pattern')
+    parser.add_argument('replace', help='Replace with this string')
+    parser.add_argument('-r', '--regex', action='store_true',
+                        help='Search string is a regex pattern')
+    parser.add_argument('-a', '--all', action='store_true',
+                        help='Replace all occurrences of the pattern')
+    args = parser.parse_args()
+    root = os.getcwd()
+    # define replace method
+    if args.regex:
+        import re
+
+        pattern = re.compile(args.pattern)
+        if args.all:
+            def replace(s):
+                return pattern.sub(args.replace, s)
+        else:
+            def replace(s):
+                return pattern.subn(args.replace, s)[0]
+    else:
+        num = -1 if args.all else 1
+
+        def replace(s):
+            return s.replace(args.pattern, args.replace, num)
+    # replace remote urls
+    for entry in os.listdir('.'):
+        path = os.path.join(root, entry)
+        if os.path.isdir(path):
+            os.chdir(path)
+            try:
+                try:
+                    repo = Repo(path)
+                except InvalidGitRepositoryError:
+                    continue
+                if repo.bare:
+                    continue
+                for remote in repo.remotes:
+                    for url in remote.urls:
+                        new_url = replace(url)
+                        if new_url != url:
+                            remote.set_url(new_url, url)
+                            print('{}:\n\t{} -> {}'.format(path, url, new_url))
+            except Exception as ex:
+                print('Error while changing remote url in {}:\n{!s}\n{}'
+                      .format(path, ex, traceback.format_exc()))

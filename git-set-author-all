@@ -7,7 +7,8 @@ import traceback
 from git import Repo, InvalidGitRepositoryError
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Set author and email for all repos found under the current directory')
+    parser = argparse.ArgumentParser(description='Set author and email for all repos '
+                                                 'found under the current directory')
     parser.add_argument('author', help='Author name')
     parser.add_argument('email', nargs='?', default='', help='Author email')
     args = parser.parse_args()
@@ -34,4 +35,5 @@ if __name__ == '__main__':
                                                   cfg.get('user', 'name'),
                                                   cfg.get('user', 'email') or 'no email'))
             except Exception as ex:
-                print('Error while changing author info in {}:\n{!s}\n{}'.format(path, ex, traceback.format_exc()))
+                print('Error while changing author info in {}:\n{!s}\n{}'
+                      .format(path, ex, traceback.format_exc()))
