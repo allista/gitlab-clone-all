@@ -1,0 +1,44 @@
+#!/usr/bin/python3
+
+import argparse
+
+from gitlab_clone_all_utils import TipHandler, RepoProcessor
+
+
+class Worker(RepoProcessor, TipHandler):
+    def _process(self, repo, path):
+        tips = []
+        commits = self._commits_per_head(repo.heads)
+        for head in commits:
+            if head.name in self._args.exclude:
+                continue
+            if self._is_tip(head, commits):
+                name = head.name
+                if self._args.include_tracking:
+                    tracking = head.tracking_branch()
+                    if tracking:
+                        name = tracking.name
+                tips.append(name)
+        if self._args.include_tracking:
+            remote = repo.remote(self._args.remote)
+            if remote.exists():
+                head_commits = set(h.commit for h in repo.heads)
+                remote_heads = [ref for ref in remote.refs if ref.commit not in head_commits]
+                commits = self._commits_per_head(remote.refs)
+                for ref in remote_heads:
+                    if self._is_tip(ref, commits):
+                        tips.append(ref.name)
+        if tips:
+            print('{}:\n{}\n'.format(path, '\n'.join(sorted(tips))))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='List all tip branches, i.e. branches that are '
+                                                 'not merged into any other')
+    parser.add_argument('-x', '--exclude', type=str, nargs='+', default=[],
+                        help='Exclude these branches')
+    parser.add_argument('-t', '--include-tracking', action='store_true',
+                        help='Exclude tracking branches')
+    parser.add_argument('remote', nargs='?', default='origin',
+                        help='Remote to check for the branch')
+    Worker.execute(parser)

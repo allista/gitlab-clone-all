@@ -3,7 +3,7 @@ from distutils.core import setup
 setup(
         name='gitlab-clone-all',
         version='1.1',
-        packages=[''],
+        packages=['gitlab_clone_all_utils'],
         url='',
         license='MIT',
         author='Evgeny Taranov',
@@ -15,5 +15,6 @@ setup(
                  'git-set-author-all',
                  'git-checkout-all',
                  'git-replace-remote-all',
-                 'git-clean-branches-all']
+                 'git-clean-branches-all',
+                 'git-list-all-tips']
 )
