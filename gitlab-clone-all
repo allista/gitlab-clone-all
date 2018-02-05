@@ -14,22 +14,28 @@ from git import Repo
 api_path = '/api/v{:d}/projects/'
 
 
-def _exit(response):
-    print(str(response.read()))
+def _exit(_response):
+    print(str(_response.read()))
     sys.exit(1)
 
 
-def _read_json(response):
-    return json.loads(response.read().decode())
+def _read_json(_response):
+    return json.loads(_response.read().decode())
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Clone ALL repositories from GitLab server available to user')
-    parser.add_argument('token', type=str, help='GitLab secret token of the user')
-    parser.add_argument('server', type=str, help='URL of the GitLab server')
-    parser.add_argument('-b', '--branch', type=str, help='Checkout this branch after cloning')
-    parser.add_argument('-n', '--namespace', type=str, help='Only clone projects from this namespace')
-    parser.add_argument('-v', '--api-version', type=int, default=3, help='GitLab api version. Default: 3')
+    parser = argparse.ArgumentParser(description='Clone ALL repositories from GitLab server '
+                                                 'available to user')
+    parser.add_argument('token', type=str,
+                        help='GitLab secret token of the user')
+    parser.add_argument('server', type=str,
+                        help='URL of the GitLab server')
+    parser.add_argument('-b', '--branch', type=str,
+                        help='Checkout this branch after cloning')
+    parser.add_argument('-n', '--namespace', type=str,
+                        help='Only clone projects from this namespace')
+    parser.add_argument('-v', '--api-version', type=int, default=3,
+                        help='GitLab api version. Default: 3')
     # parse and process args
     args = parser.parse_args()
     server_url = parse.urlsplit(args.server)
@@ -87,7 +93,8 @@ if __name__ == '__main__':
                             repo.create_head(args.branch, r).set_tracking_branch(r).checkout()
                 print('Cloned {} of {}: {}'.format(i+1, num_projects, pdir))
             except Exception as error:
-                print('Error while cloning {}:\n{!s}\n{}'.format(pdir, error, traceback.format_exc()))
+                print('Error while cloning {}:\n{!s}\n{}'
+                      .format(pdir, error, traceback.format_exc()))
                 continue
     except Exception as error:
         print(str(error))
