@@ -1,11 +1,35 @@
 #!/usr/bin/python3
 
 import argparse
-import os
-import traceback
-
 import sys
-from git import Repo, InvalidGitRepositoryError
+
+from gitlab_clone_all_utils import TipHandler, RepoProcessor
+
+
+class Worker(RepoProcessor, TipHandler):
+    def _process(self, repo, path):
+        print('Processing {}:'.format(path))
+        commits = self._commits_per_head(repo.heads)
+        for head in commits:
+            if head.name in self._args.exclude:
+                continue
+            if head.commit == repo.head.commit:
+                continue
+            if not self._args.include_tracking and head.tracking_branch():
+                continue
+            if not self._is_tip(head, commits):
+                print('{} is not a tip.'.format(head.name))
+                do_remove = True
+                if not self._args.auto:
+                    answer = input('Remove? [yes]/no/quit: ')
+                    if answer.lower() in ['q', 'quit']:
+                        sys.exit(0)
+                    do_remove = not answer or answer.lower() in ['y', 'yes']
+                if do_remove:
+                    repo.delete_head(head)
+                    print('Removed.')
+        print('Processed {}\n'.format(path))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Delete local branches that are not tips')
@@ -15,47 +39,4 @@ if __name__ == '__main__':
                         help='Exclude tracking branches')
     parser.add_argument('-a', '--auto', action='store_true',
                         help='Automatically remove branches instead of asking each time')
-    args = parser.parse_args()
-    root = os.getcwd()
-    for entry in os.listdir('.'):
-        path = os.path.join(root, entry)
-        if os.path.isdir(path):
-            os.chdir(path)
-            try:
-                try:
-                    repo = Repo(path)
-                except InvalidGitRepositoryError:
-                    continue
-                if repo.bare:
-                    continue
-                print('Processing {}:'.format(path))
-                commits = {head: set([head.commit] + list(head.commit.iter_parents()))
-                           for head in repo.heads}
-                for head in commits:
-                    if head.name in args.exclude:
-                        continue
-                    if head.commit == repo.head.commit:
-                        continue
-                    if not args.include_tracking and head.tracking_branch():
-                        continue
-                    tip = True
-                    for other in commits:
-                        if head != other:
-                            if head.commit in commits[other]:
-                                tip = False
-                                break
-                    if not tip:
-                        print('{} is not a tip.'.format(head.name))
-                        do_remove = True
-                        if not args.auto:
-                            answer = input('Remove? [yes]/no/quit: ')
-                            if answer.lower() in ['q', 'quit']:
-                                sys.exit(0)
-                            do_remove = not answer or answer.lower() in ['y', 'yes']
-                        if do_remove:
-                            repo.delete_head(head)
-                            print('Removed.')
-                print('Processed {}\n'.format(path))
-            except Exception as ex:
-                print('\nError while processing {}:\n{!s}\n{}'
-                      .format(path, ex, traceback.format_exc()))
+    Worker.execute(parser)
