@@ -14,5 +14,6 @@ setup(
                  'git-fetch-all',
                  'git-set-author-all',
                  'git-checkout-all',
-                 'git-replace-remote-all']
+                 'git-replace-remote-all',
+                 'git-clean-branches-all']
 )
