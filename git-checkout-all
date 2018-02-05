@@ -7,12 +7,18 @@ import traceback
 from git import Repo, InvalidGitRepositoryError
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Checkout a particular branch in all the repos if it exists')
+    parser = argparse.ArgumentParser(description='Checkout a particular branch '
+                                                 'in all the repos if it exists')
     parser.add_argument('-q', '--quite', action='store_true',
                         help='Do not output warnings about missing remotes and branches')
-    parser.add_argument('branch', help='Local branch name. If local repo does not have this branch, '
-                                       'but the remote does, it is checked out instead as a new local branch')
-    parser.add_argument('remote', nargs='?', default='origin', help='Remote to check for the branch')
+    parser.add_argument('-c', '--create', action='store_true',
+                        help='Create new local branch at current commit even if there is no '
+                             'corresponding remote branch')
+    parser.add_argument('branch',
+                        help='Local branch name. If local repo does not have this branch, '
+                             'but the remote does, it is checked out instead as a new local branch')
+    parser.add_argument('remote', nargs='?', default='origin',
+                        help='Remote to check for the branch')
     args = parser.parse_args()
     root = os.getcwd()
     for entry in os.listdir('.'):
@@ -26,31 +32,37 @@ if __name__ == '__main__':
                     continue
                 if repo.bare:
                     continue
-                if repo.is_dirty():
-                    print('{} is dirty'.format(path))
-                    continue
+                check_dirty = False
                 try:
                     local_head = repo.heads[args.branch]
+                    check_dirty = local_head.commit != repo.head.commit
                 except IndexError:
                     local_head = None
                 if not local_head:
                     remote = repo.remote(args.remote)
-                    if not remote.exists():
-                        if not args.quite:
+                    if remote.exists():
+                        remote_head = {ref.remote_head: ref for ref in remote.refs}.get(args.branch)
+                        if remote_head:
+                            local_head = repo.create_head(args.branch, commit=remote_head.commit)
+                            local_head.set_tracking_branch(remote_head)
+                            check_dirty = local_head.commit != repo.head.commit
+                        else:
+                            if not args.quite and not args.create:
+                                print('Remote "{}" does not have "{}" branch in {}'
+                                      .format(args.remote, args.branch, path))
+                    else:
+                        if not args.quite and not args.create:
                             print('Remote "{}" does not exist in {}'.format(args.remote, path))
-                        continue
-                    remote_head = {ref.remote_head: ref for ref in remote.refs}.get(args.branch)
-                    if not remote_head:
-                        if not args.quite:
-                            print('Remote "{}" does not have "{}" branch in {}'.format(args.remote, args.branch, path))
-                        continue
-                    local_head = repo.create_head(args.branch, commit=remote_head.commit)
-                    local_head.set_tracking_branch(remote_head)
-                if local_head.commit != repo.head.commit:
+                if check_dirty and repo.is_dirty():
+                    print('{} is dirty'.format(path))
+                    continue
+                if not local_head and args.create:
+                    local_head = repo.create_head(args.branch)
+                    print('Created {} branch in {}'.format(local_head.name, path))
+                    continue
+                if local_head:
                     local_head.checkout()
                     print('{} branch was checked out in {}'.format(local_head.name, path))
-                else:
-                    print('{} branch is already checked out in {}'.format(local_head.name, path))
             except Exception as ex:
                 print('\nError while checking out {} in {}:\n{!s}\n{}'
                       .format(args.branch, path, ex, traceback.format_exc()))
