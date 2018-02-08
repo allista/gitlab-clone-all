@@ -36,7 +36,7 @@ if __name__ == '__main__':
     parser.add_argument('-x', '--exclude', type=str, nargs='+', default=[],
                         help='Exclude these branches')
     parser.add_argument('-t', '--include-tracking', action='store_true',
-                        help='Exclude tracking branches')
+                        help='Include tracking branches')
     parser.add_argument('-a', '--auto', action='store_true',
                         help='Automatically remove branches instead of asking each time')
     Worker.execute(parser)
