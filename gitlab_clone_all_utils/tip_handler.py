@@ -8,8 +8,8 @@ class TipHandler(object):
     def _is_tip(head, commits):
         tip = True
         for other in commits:
-            if head != other:
-                if head.commit in commits[other]:
-                    tip = False
+            if head.commit != other.commit:
+                tip = head.commit not in commits[other]
+                if not tip:
                     break
         return tip
