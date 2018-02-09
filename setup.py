@@ -16,5 +16,5 @@ setup(
                  'git-checkout-all',
                  'git-replace-remote-all',
                  'git-clean-branches-all',
-                 'git-list-all-tips']
+                 'git-search-all']
 )

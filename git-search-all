@@ -1,0 +1,125 @@
+#!/usr/bin/python3
+
+import argparse
+import re
+
+import os
+
+from gitlab_clone_all_utils import TipHandler, RepoProcessor
+
+
+def _format_commit(commit):
+    return '{} {} by {}: {}\n' \
+           '-------------------------------------------------------------------------------------' \
+        .format(commit.authored_datetime,
+                commit.hexsha,
+                commit.author,
+                commit.message.strip())
+
+
+def _get_attr(obj, attrs):
+    if not attrs:
+        return obj
+    res = getattr(obj, attrs[0], None)
+    if res:
+        return _get_attr(res, attrs[1:])
+
+
+class Worker(RepoProcessor, TipHandler):
+
+    def __init__(self, args, path):
+        super().__init__(args, path)
+        self._term = re.compile(args.term)
+        _what = args.what.split('.')
+        self._what = _what[0]
+        self._attrs = _what[1:] or None
+
+    def _all_heads(self, repo):
+        if self._args.local_only or not self._args.remote_only:
+            for head in repo.heads:
+                yield head
+        if not self._args.local_only:
+            remote = repo.remote(self._args.remote)
+            if remote.exists():
+                for ref in remote.refs:
+                    yield ref
+
+    def _all_commits(self, repo):
+        return self._commits_per_head(self._all_heads(repo))
+
+    def _search_commit(self, repo, attrs):
+        commits = self._all_commits(repo)
+        found = set()
+        for head in commits:
+            for commit in commits[head]:
+                if commit not in found:
+                    if self._term.search(str(_get_attr(commit, attrs))):
+                        found.add(commit)
+        return '\n'.join(_format_commit(c)
+                         for c in sorted(found,
+                                         key=lambda c: c.authored_datetime,
+                                         reverse=True))
+
+    def _search_branch(self, repo):
+        found = set()
+        for head in self._all_heads(repo):
+            if head not in found:
+                if self._term.search(str(head.name)):
+                    found.add(head)
+        return '\n'.join(head.name for head in sorted(found, key=lambda h: h.name))
+
+    def _find_all_tips(self, repo):
+        tips = []
+        commits = self._commits_per_head(repo.heads)
+        for head in commits:
+            if self._is_tip(head, commits):
+                name = head.name
+                if not self._args.local_only:
+                    tracking = head.tracking_branch()
+                    if tracking:
+                        name = tracking.name
+                tips.append(name)
+        if not self._args.local_only:
+            remote = repo.remote(self._args.remote)
+            if remote.exists():
+                head_commits = set(h.commit for h in repo.heads)
+                remote_heads = [ref for ref in remote.refs
+                                if ref.remote_head != 'HEAD' and ref.commit not in head_commits]
+                commits = self._commits_per_head(remote.refs)
+                for ref in remote_heads:
+                    if self._is_tip(ref, commits):
+                        tips.append(ref.name)
+        return '\n'.join(sorted(tips, reverse=True))
+
+    @staticmethod
+    def _print_res(path, res):
+        if res:
+            print('{}:\n{}\n'.format(os.path.basename(path), res))
+
+    def _process(self, repo, path):
+        if self._what == 'commit':
+            self._print_res(path,
+                            self._search_commit(repo, self._attrs or ['message']))
+        elif self._what == 'branch':
+            self._print_res(path, self._search_branch(repo))
+        elif self._what == 'repo':
+            if self._args.term == 'tips':
+                self._print_res(path, self._find_all_tips(repo))
+            else:
+                if self._term.search(path):
+                    print(path)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Search within all repositories')
+    parser.add_argument('what', type=str, help='What to search for: '
+                                               'repo, branch, commit[.attr[.attr]]')
+    parser.add_argument('term', type=str, help='Search term (regex) or a keyword: '
+                                               'tips (for repo)')
+    parser.add_argument('-l', '--local-only', action='store_true',
+                        help='Only search within local branches')
+    parser.add_argument('-r', '--remote-only', action='store_true',
+                        help='Only search within local branches')
+    parser.add_argument('-R', '--remote', type=str, default='origin',
+                        help='Remote to check if required')
+    Worker.execute(parser)
