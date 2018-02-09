@@ -7,27 +7,55 @@ from gitlab_clone_all_utils import TipHandler, RepoProcessor
 
 
 class Worker(RepoProcessor, TipHandler):
+    def _remove_head(self, repo, head):
+        do_remove = True
+        if not self._args.auto:
+            answer = input('Remove? [yes]/no/quit: ')
+            if answer.lower() in ['q', 'quit']:
+                sys.exit(0)
+            do_remove = not answer or answer.lower() in ['y', 'yes']
+        if do_remove:
+            repo.delete_head(head)
+            print('Removed.')
+
+    def _can_remove(self, repo, head):
+        if head.name in self._args.exclude:
+            return False
+        if head == repo.active_branch:
+            return False
+        if not self._args.include_tracking and head.tracking_branch():
+            return False
+        return True
+
     def _process(self, repo, path):
         print('Processing {}:'.format(path))
         commits = self._commits_per_head(repo.heads)
+        tips_per_commit = {}
         for head in commits:
-            if head.name in self._args.exclude:
-                continue
-            if head.commit == repo.head.commit:
-                continue
-            if not self._args.include_tracking and head.tracking_branch():
-                continue
             if not self._is_tip(head, commits):
-                print('{} is not a tip.'.format(head.name))
-                do_remove = True
-                if not self._args.auto:
-                    answer = input('Remove? [yes]/no/quit: ')
-                    if answer.lower() in ['q', 'quit']:
-                        sys.exit(0)
-                    do_remove = not answer or answer.lower() in ['y', 'yes']
-                if do_remove:
-                    repo.delete_head(head)
-                    print('Removed.')
+                if self._can_remove(repo, head):
+                    print('{} is not a tip.'.format(head.name))
+                    self._remove_head(repo, head)
+            else:
+                tips = tips_per_commit.setdefault(head.commit, set())
+                tips.add(head)
+        for tips in tips_per_commit.values():
+            if len(tips) > 1:
+                removable = [h for h in tips if self._can_remove(repo, h)]
+                if len(removable) == 1:
+                    head = removable[0]
+                    tips.remove(head)
+                    print('{} points to the same commit as: {}'
+                          .format(head.name, tips.pop().name))
+                    self._remove_head(repo, head)
+                elif removable:
+                    print('These tips point to the same commit:\n{}'
+                          .format('\n'.join('[{}] {}'.format(i, h.name)
+                                            for i, h in enumerate(removable))))
+                    answer = input('Choose one to leave: ')
+                    for i, head in enumerate(removable):
+                        if i != answer:
+                            self._remove_head(repo, head)
         print('Processed {}\n'.format(path))
 
 
