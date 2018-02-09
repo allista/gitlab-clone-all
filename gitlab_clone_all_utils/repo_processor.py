@@ -13,7 +13,7 @@ class RepoProcessor(object):
     def run(self):
         os.chdir(self._path)
         root = os.getcwd()
-        for entry in os.listdir('.'):
+        for entry in sorted(os.listdir('.')):
             path = os.path.join(root, entry)
             if os.path.isdir(path):
                 os.chdir(path)
