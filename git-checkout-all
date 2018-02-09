@@ -8,22 +8,31 @@ from gitlab_clone_all_utils import RepoProcessor
 class Worker(RepoProcessor):
     def _process(self, repo, path):
         check_dirty = False
-        try:
-            local_head = repo.heads[self._args.branch]
-            check_dirty = local_head.commit != repo.head.commit
-        except IndexError:
-            local_head = None
+        local_head = None
+        for branch in self._args.branch:
+            try:
+                local_head = repo.heads[branch]
+                check_dirty = local_head.commit != repo.head.commit
+                break
+            except IndexError:
+                continue
         if not local_head:
             remote = repo.remote(self._args.remote)
             if remote.exists():
-                remote_head = {ref.remote_head: ref for ref in remote.refs}.get(self._args.branch)
+                remote_head = None
+                remote_heads = {ref.remote_head: ref for ref in remote.refs}
+                for branch in self._args.branch:
+                    remote_head = remote_heads.get(branch)
+                    if remote_head:
+                        break
                 if remote_head:
-                    local_head = repo.create_head(self._args.branch, commit=remote_head.commit)
+                    local_head = repo.create_head(remote_head.remote_head,
+                                                  commit=remote_head.commit)
                     local_head.set_tracking_branch(remote_head)
                     check_dirty = local_head.commit != repo.head.commit
                 else:
                     if not self._args.quite and not self._args.create:
-                        print('Remote "{}" does not have "{}" branch in {}'
+                        print('Remote "{}" does not have "{}" branch(es) in {}'
                               .format(self._args.remote, self._args.branch, path))
             else:
                 if not self._args.quite and not self._args.create:
@@ -32,7 +41,7 @@ class Worker(RepoProcessor):
             print('{} is dirty'.format(path))
             return
         if not local_head and self._args.create:
-            local_head = repo.create_head(self._args.branch)
+            local_head = repo.create_head(self._args.branch[0])
             print('Created {} branch in {}'.format(local_head.name, path))
             return
         if local_head:
@@ -48,7 +57,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--create', action='store_true',
                         help='Create new local branch at current commit even if there is no '
                              'corresponding remote branch')
-    parser.add_argument('branch',
+    parser.add_argument('branch', type=str, nargs='+', default=[],
                         help='Local branch name. If local repo does not have this branch, '
                              'but the remote does, it is checked out instead as a new local branch')
     parser.add_argument('remote', nargs='?', default='origin',
