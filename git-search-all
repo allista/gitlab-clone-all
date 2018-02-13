@@ -1,9 +1,8 @@
 #!/usr/bin/python3
 
 import argparse
-import re
-
 import os
+import re
 
 from gitlab_clone_all_utils import TipHandler, RepoProcessor
 
@@ -77,8 +76,9 @@ class Worker(RepoProcessor, TipHandler):
                 if not self._args.local_only:
                     tracking = head.tracking_branch()
                     if tracking:
+                        head = tracking
                         name = tracking.name
-                tips.append(name)
+                tips.append([name, head.commit])
         if not self._args.local_only:
             remote = repo.remote(self._args.remote)
             if remote.exists():
@@ -88,8 +88,10 @@ class Worker(RepoProcessor, TipHandler):
                 commits = self._commits_per_head(remote.refs)
                 for ref in remote_heads:
                     if self._is_tip(ref, commits):
-                        tips.append(ref.name)
-        return '\n'.join(sorted(tips, reverse=True))
+                        tips.append([ref.name, ref.commit])
+        return '\n'.join('{}\n{}'.format(tip[0], _format_commit(tip[1]))
+                         for tip in
+                         sorted(tips, reverse=True, key=lambda x: x[1].authored_datetime))
 
     @staticmethod
     def _print_res(path, res):
