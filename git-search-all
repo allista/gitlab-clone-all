@@ -93,6 +93,19 @@ class Worker(RepoProcessor, TipHandler):
                          for tip in
                          sorted(tips, reverse=True, key=lambda x: x[1].authored_datetime))
 
+    def _find_all_ahead_branches(self, repo):
+        self._args.local_only = True
+        found = set()
+        for head in self._all_heads(repo):
+            if head not in found:
+                tracking = head.tracking_branch()
+                if not tracking:
+                    found.add(head)
+                elif tracking.commit in head.commit.iter_parents():
+                    found.add(head)
+        return '\n'.join('{}\n{}'.format(head, _format_commit(head.commit))
+                         for head in sorted(found, key=lambda h: h.name))
+
     @staticmethod
     def _print_res(path, res):
         if res:
@@ -107,6 +120,8 @@ class Worker(RepoProcessor, TipHandler):
         elif self._what == 'repo':
             if self._args.term == 'tips':
                 self._print_res(path, self._find_all_tips(repo))
+            elif self._args.term == 'ahead':
+                self._print_res(path, self._find_all_ahead_branches(repo))
             else:
                 if self._term.search(path):
                     print(path)
@@ -116,8 +131,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Search within all repositories')
     parser.add_argument('what', type=str, help='What to search for: '
                                                'repo, branch, commit[.attr[.attr]]')
-    parser.add_argument('term', type=str, help='Search term (regex) or a keyword: '
-                                               'tips (for repo)')
+    parser.add_argument('term', type=str, help='Search term (regex) or a keyword for repo: '
+                                               'tips, ahead (implies -l)')
     parser.add_argument('-l', '--local-only', action='store_true',
                         help='Only search within local branches')
     parser.add_argument('-r', '--remote-only', action='store_true',
