@@ -31,11 +31,11 @@ class Worker(RepoProcessor, TipHandler):
         print('Processing {}:'.format(path))
         commits = self._commits_per_head(repo.heads)
         tips_per_commit = {}
+        to_remove = []
         for head in commits:
             if not self._is_tip(head, commits):
                 if self._can_remove(repo, head):
-                    print('{} is not a tip.'.format(head.name))
-                    self._remove_head(repo, head)
+                    to_remove.append((head, '{} is not a tip.'.format(head.name)))
             else:
                 tips = tips_per_commit.setdefault(head.commit, set())
                 tips.add(head)
@@ -45,9 +45,9 @@ class Worker(RepoProcessor, TipHandler):
                 if len(removable) == 1:
                     head = removable[0]
                     tips.remove(head)
-                    print('{} points to the same commit as: {}'
-                          .format(head.name, tips.pop().name))
-                    self._remove_head(repo, head)
+                    to_remove.append((head,
+                                      '{} points to the same commit as: {}'
+                                      .format(head.name, tips.pop().name)))
                 elif removable:
                     print('These tips point to the same commit:\n{}'
                           .format('\n'.join('[{}] {}'.format(i, h.name)
@@ -55,7 +55,12 @@ class Worker(RepoProcessor, TipHandler):
                     answer = input('Choose one to leave: ')
                     for i, head in enumerate(removable):
                         if i != answer:
-                            self._remove_head(repo, head)
+                            to_remove.append((head,
+                                              'Removing duplicate branch: {}'
+                                              .format(head.name)))
+        for head, message in to_remove:
+            print(message)
+            self._remove_head(repo, head)
         print('Processed {}\n'.format(path))
 
 
