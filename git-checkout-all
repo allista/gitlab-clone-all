@@ -43,7 +43,6 @@ class Worker(RepoProcessor):
         if not local_head and self._args.create:
             local_head = repo.create_head(self._args.branch[0])
             print('Created {} branch in {}'.format(local_head.name, path))
-            return
         if local_head:
             local_head.checkout()
             print('{} branch was checked out in {}'.format(local_head.name, path))
