@@ -54,7 +54,7 @@ class Worker(RepoProcessor, TipHandler):
                                             for i, h in enumerate(removable))))
                     answer = input('Choose one to leave: ')
                     for i, head in enumerate(removable):
-                        if i != answer:
+                        if str(i) != answer:
                             to_remove.append((head,
                                               'Removing duplicate branch: {}'
                                               .format(head.name)))
