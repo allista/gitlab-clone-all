@@ -34,8 +34,8 @@ if __name__ == '__main__':
                         help='Checkout this branch after cloning')
     parser.add_argument('-n', '--namespace', type=str,
                         help='Only clone projects from this namespace')
-    parser.add_argument('-v', '--api-version', type=int, default=3,
-                        help='GitLab api version. Default: 3')
+    parser.add_argument('-v', '--api-version', type=int, default=4,
+                        help='GitLab api version. Default: 4')
     # parse and process args
     args = parser.parse_args()
     server_url = parse.urlsplit(args.server)
