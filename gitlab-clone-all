@@ -85,7 +85,7 @@ if __name__ == '__main__':
                     continue
             if args.group:
                 nwn = p['name_with_namespace'].replace(" ", "")
-                if args.group not in nwn:
+                if not nwn.startswith(args.group):
                     print('Skipping {} from {} group...'.format(pdir, nwn))
                     continue
                 pathdir = p['path_with_namespace']
