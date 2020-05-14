@@ -102,7 +102,6 @@ if __name__ == '__main__':
                     for r in origin.refs:
                         if r.remote_head == args.branch:
                             repo.create_head(args.branch, r).set_tracking_branch(r).checkout()
-							
                 if args.fresh and (args.fresh in ['y','Y'] ):
                     last_commit = repo.head.commit
                     repo.head.reference = repo.commit(last_commit)
