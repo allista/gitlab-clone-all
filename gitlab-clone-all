@@ -94,9 +94,7 @@ if __name__ == '__main__':
                 print('Project {} already exists. Skipping...'.format(pdir))
                 continue
             try:
-                pathlib.Path(pathdir).mkdir(parents=True, exist_ok=True)
-                print(p['ssh_url_to_repo'])
-                print(pathdir)				
+                pathlib.Path(pathdir).mkdir(parents=True, exist_ok=True)			
                 repo = Repo.clone_from(p['ssh_url_to_repo'], pathdir)
                 origin = repo.remote('origin')
                 for f in origin.fetch():
