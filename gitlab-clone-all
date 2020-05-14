@@ -78,7 +78,6 @@ if __name__ == '__main__':
         num_projects = len(projects)
         for i, p in enumerate(projects):
             pdir = pathdir = p['name']
-			
             if args.namespace:
                 ns = p['namespace']['name']
                 if args.namespace != p['namespace']['name']:
