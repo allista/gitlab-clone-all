@@ -2,6 +2,7 @@ import os
 import sys
 import traceback
 from argparse import Namespace, ArgumentParser
+from typing import Union
 
 from git import Repo, InvalidGitRepositoryError
 
@@ -39,6 +40,11 @@ class RepoProcessor:
         raise NotImplementedError()
 
     @classmethod
-    def execute(cls, parser: ArgumentParser, path: str = '.') -> None:
-        args = parser.parse_args()
+    def execute(cls, parser_or_args: Union[ArgumentParser, Namespace], path: str = '.') -> None:
+        if isinstance(parser_or_args, ArgumentParser):
+            args = parser_or_args.parse_args()
+        elif isinstance(parser_or_args, Namespace):
+            args = parser_or_args
+        else:
+            raise ValueError(f'Unsupported type of parser_or_args: {type(parser_or_args)}')
         sys.exit(cls(args, path).run())
