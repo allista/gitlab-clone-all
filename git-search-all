@@ -2,10 +2,12 @@
 
 import os
 import re
+from typing import Any, List, Optional, Generator, Set, Tuple
 
-from git import Repo
+from git import Repo, Head, Commit
 
 from gitlab_clone_all_utils import TipHandler, RepoProcessor
+from gitlab_clone_all_utils.tip_handler import HeadToCommitMap, CommitSet
 
 
 def _format_commit(commit):
@@ -17,7 +19,7 @@ def _format_commit(commit):
                 commit.message.strip())
 
 
-def _get_attr(obj, attrs):
+def _get_attr(obj: Any, attrs: List[str]) -> Any:
     if not attrs:
         return obj
     res = getattr(obj, attrs[0], None)
@@ -28,14 +30,14 @@ def _get_attr(obj, attrs):
 
 class Worker(RepoProcessor, TipHandler):
 
-    def __init__(self, args, path):
+    def __init__(self, args: argparse.Namespace, path: str) -> None:
         super().__init__(args, path)
         self._term = re.compile(args.term)
         _what = args.what.split('.')
-        self._what = _what[0]
-        self._attrs = _what[1:] or None
+        self._what: str = _what[0]
+        self._attrs: Optional[List[str]] = _what[1:] or None
 
-    def _all_heads(self, repo):
+    def _all_heads(self, repo: Repo) -> Generator[Head, Any, None]:
         if self._args.local_only or not self._args.remote_only:
             for head in repo.heads:
                 yield head
@@ -45,12 +47,12 @@ class Worker(RepoProcessor, TipHandler):
                 for ref in remote.refs:
                     yield ref
 
-    def _all_commits(self, repo):
+    def _all_commits(self, repo: Repo) -> HeadToCommitMap:
         return self._commits_per_head(self._all_heads(repo))
 
-    def _search_commit(self, repo, attrs):
+    def _search_commit(self, repo: Repo, attrs: List[str]) -> str:
         commits = self._all_commits(repo)
-        found = set()
+        found: CommitSet = set()
         for head in commits:
             for commit in commits[head]:
                 if commit not in found:
@@ -64,16 +66,16 @@ class Worker(RepoProcessor, TipHandler):
                                          key=lambda c: c.authored_datetime,
                                          reverse=True))
 
-    def _search_branch(self, repo):
-        found = set()
+    def _search_branch(self, repo: Repo) -> str:
+        found: Set[Head] = set()
         for head in self._all_heads(repo):
             if head not in found:
                 if self._term.search(str(head.name)):
                     found.add(head)
         return '\n'.join(head.name for head in sorted(found, key=lambda h: h.name))
 
-    def _find_all_tips(self, repo):
-        tips = []
+    def _find_all_tips(self, repo: Repo) -> str:
+        tips: List[Tuple[str, Commit]] = []
         commits = self._commits_per_head(repo.heads)
         for head in commits:
             if self._is_tip(head, commits):
@@ -83,7 +85,7 @@ class Worker(RepoProcessor, TipHandler):
                     if tracking:
                         head = tracking
                         name = tracking.name
-                tips.append([name, head.commit])
+                tips.append((name, head.commit))
         if not self._args.local_only:
             remote = repo.remote(self._args.remote)
             if remote.exists():
@@ -93,14 +95,14 @@ class Worker(RepoProcessor, TipHandler):
                 commits = self._commits_per_head(remote.refs)
                 for ref in remote_heads:
                     if self._is_tip(ref, commits):
-                        tips.append([ref.name, ref.commit])
+                        tips.append((ref.name, ref.commit))
         return '\n'.join('{}\n{}'.format(tip[0], _format_commit(tip[1]))
                          for tip in
                          sorted(tips, reverse=True, key=lambda x: x[1].authored_datetime))
 
-    def _find_all_ahead_branches(self, repo):
+    def _find_all_ahead_branches(self, repo: Repo) -> str:
         self._args.local_only = True
-        found = set()
+        found: Set[Head] = set()
         for head in self._all_heads(repo):
             if head not in found:
                 tracking = head.tracking_branch()
@@ -112,7 +114,7 @@ class Worker(RepoProcessor, TipHandler):
                          for head in sorted(found, key=lambda h: h.name))
 
     @staticmethod
-    def _print_res(path, res):
+    def _print_res(path: str, res: Any) -> None:
         if res:
             print('{}:\n{}\n'.format(os.path.basename(path), res))
 
