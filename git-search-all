@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-import argparse
 import os
 import re
 
@@ -128,6 +127,7 @@ class Worker(RepoProcessor, TipHandler):
 
 
 if __name__ == '__main__':
+    import argparse
     parser = argparse.ArgumentParser(description='Search within all repositories')
     parser.add_argument('what', type=str, help='What to search for: '
                                                'repo, branch, commit[.attr[.attr]]')
