@@ -3,6 +3,8 @@
 import argparse
 import sys
 
+from git import Repo
+
 from gitlab_clone_all_utils import TipHandler, RepoProcessor
 
 
@@ -27,7 +29,7 @@ class Worker(RepoProcessor, TipHandler):
             return False
         return True
 
-    def _process(self, repo, path):
+    def _process(self, repo: Repo, path: str) -> None:
         print('Processing {}:'.format(path))
         commits = self._commits_per_head(repo.heads)
         tips_per_commit = {}

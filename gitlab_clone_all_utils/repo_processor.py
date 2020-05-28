@@ -1,12 +1,13 @@
 import os
-import traceback
-
 import sys
+import traceback
+from argparse import Namespace, ArgumentParser
+
 from git import Repo, InvalidGitRepositoryError
 
 
-class RepoProcessor(object):
-    def __init__(self, args, path='.'):
+class RepoProcessor:
+    def __init__(self, args: Namespace, path: str = '.') -> None:
         self._args = args
         self._path = path
 
@@ -34,10 +35,10 @@ class RepoProcessor(object):
                 self._process_path(os.path.join(root, dirname))
         return 0
 
-    def _process(self, repo, path):
+    def _process(self, repo: Repo, path: str) -> None:
         raise NotImplementedError()
 
     @classmethod
-    def execute(cls, parser, path='.'):
+    def execute(cls, parser: ArgumentParser, path: str = '.') -> None:
         args = parser.parse_args()
         sys.exit(cls(args, path).run())

@@ -3,6 +3,8 @@
 import os
 import re
 
+from git import Repo
+
 from gitlab_clone_all_utils import TipHandler, RepoProcessor
 
 
@@ -114,7 +116,7 @@ class Worker(RepoProcessor, TipHandler):
         if res:
             print('{}:\n{}\n'.format(os.path.basename(path), res))
 
-    def _process(self, repo, path):
+    def _process(self, repo: Repo, path: str) -> None:
         if self._what == 'commit':
             self._print_res(path,
                             self._search_commit(repo, self._attrs or ['message']))

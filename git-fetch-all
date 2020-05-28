@@ -2,6 +2,8 @@
 
 import argparse
 
+from git import Repo
+
 from gitlab_clone_all_utils import RepoProcessor
 
 
@@ -32,7 +34,7 @@ def _print_fetch_info(action, info_iter, heads, repo):
 
 
 class Worker(RepoProcessor):
-    def _process(self, repo, path):
+    def _process(self, repo: Repo, path: str) -> None:
         remote = repo.remote(self._args.remote)
         if not remote.exists():
             return

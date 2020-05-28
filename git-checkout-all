@@ -2,11 +2,13 @@
 
 import argparse
 
+from git import Repo
+
 from gitlab_clone_all_utils import RepoProcessor
 
 
 class Worker(RepoProcessor):
-    def _process(self, repo, path):
+    def _process(self, repo: Repo, path: str) -> None:
         check_dirty = False
         local_head = None
         for branch in self._args.branch:
