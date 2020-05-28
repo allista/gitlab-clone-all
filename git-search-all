@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-import argparse
 import os
 import re
 
@@ -22,6 +21,7 @@ def _get_attr(obj, attrs):
     res = getattr(obj, attrs[0], None)
     if res:
         return _get_attr(res, attrs[1:])
+    raise AttributeError('{!s} has no "{}" attribute'.format(type(obj), attrs[0]))
 
 
 class Worker(RepoProcessor, TipHandler):
@@ -52,8 +52,11 @@ class Worker(RepoProcessor, TipHandler):
         for head in commits:
             for commit in commits[head]:
                 if commit not in found:
-                    if self._term.search(str(_get_attr(commit, attrs))):
-                        found.add(commit)
+                    try:
+                        if self._term.search(str(_get_attr(commit, attrs))):
+                            found.add(commit)
+                    except AttributeError as exc:
+                        print(str(exc))
         return '\n'.join(_format_commit(c)
                          for c in sorted(found,
                                          key=lambda c: c.authored_datetime,
@@ -128,6 +131,7 @@ class Worker(RepoProcessor, TipHandler):
 
 
 if __name__ == '__main__':
+    import argparse
     parser = argparse.ArgumentParser(description='Search within all repositories')
     parser.add_argument('what', type=str, help='What to search for: '
                                                'repo, branch, commit[.attr[.attr]]')
