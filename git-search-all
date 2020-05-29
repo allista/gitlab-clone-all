@@ -37,6 +37,13 @@ class Worker(RepoProcessor, TipHandler):
         self._what: str = _what[0]
         self._attrs: Optional[List[str]] = _what[1:] or None
 
+    def _check_subject(self, subject: Any) -> bool:
+        if self._term.search(str(subject)):
+            return True
+        elif self._args.debug:
+            print(f'Term "{self._term.pattern}" did not match against {type(subject)}: {subject!s}')
+        return False
+
     def _all_heads(self, repo: Repo) -> Generator[Head, Any, None]:
         if self._args.local_only or not self._args.remote_only:
             for head in repo.heads:
@@ -57,7 +64,7 @@ class Worker(RepoProcessor, TipHandler):
             for commit in commits[head]:
                 if commit not in found:
                     try:
-                        if self._term.search(str(_get_attr(commit, attrs))):
+                        if self._check_subject(_get_attr(commit, attrs)):
                             found.add(commit)
                     except AttributeError as exc:
                         print(str(exc))
@@ -70,7 +77,7 @@ class Worker(RepoProcessor, TipHandler):
         found: Set[Head] = set()
         for head in self._all_heads(repo):
             if head not in found:
-                if self._term.search(str(head.name)):
+                if self._check_subject(head.name):
                     found.add(head)
         return '\n'.join(head.name for head in sorted(found, key=lambda h: h.name))
 
@@ -130,7 +137,7 @@ class Worker(RepoProcessor, TipHandler):
             elif self._args.term == 'ahead':
                 self._print_res(path, self._find_all_ahead_branches(repo))
             else:
-                if self._term.search(path):
+                if self._check_subject(path):
                     print(path)
 
 
@@ -141,6 +148,8 @@ if __name__ == '__main__':
                                                'repo, branch, commit[.attr[.attr]]')
     parser.add_argument('term', type=str, help='Search term (regex) or a keyword for repo: '
                                                'tips, ahead (implies -l)')
+    parser.add_argument('-d', '--debug', action='store_true',
+                        help='Enable additional debugging output')
     parser.add_argument('-l', '--local-only', action='store_true',
                         help='Only search within local branches')
     parser.add_argument('-r', '--remote-only', action='store_true',
