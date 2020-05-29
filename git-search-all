@@ -5,7 +5,7 @@ import os
 import re
 import sys
 from types import MemberDescriptorType
-from typing import Any, List, Optional, Generator, Set, Tuple
+from typing import Any, List, Generator, Set, Tuple, Pattern
 
 from git import Repo, Head, Commit
 
@@ -35,17 +35,46 @@ class Worker(RepoProcessor, TipHandler):
 
     def __init__(self, args: argparse.Namespace, path: str) -> None:
         super().__init__(args, path)
-        self._term = re.compile(args.term)
-        _what = args.what.split('.')
-        self._what: str = _what[0]
-        self._attrs: Optional[List[str]] = _what[1:] or None
+        self._terms: List[Pattern[str]] = []
+        self._commit_terms: List[Tuple[List[str], Pattern[str]]] = []
+        if args.what == 'commit':
+            for term_spec in args.term:
+                attr_term = term_spec.split('::', 1)
+                if len(attr_term) > 1:
+                    self._commit_terms.append((attr_term[0].strip().split('.'), re.compile(attr_term[1])))
+                else:
+                    self._commit_terms.append(([], re.compile(term_spec)))
+        else:
+            if isinstance(args.term, list):
+                self._terms = [re.compile(term) for term in args.term]
+            elif isinstance(args.term, str):
+                self._terms = [re.compile(args.term)]
+            else:
+                print(f'ERROR: unsupported type of term: {type(args.term)}')
+                self._terms = []
+
+    def _print_not_matched(self, term: Pattern[str], subject: str) -> None:
+        if self._args.debug:
+            print(f'Term "{term.pattern}" did not match against {type(subject)}: {subject!s}')
 
     def _check_subject(self, subject: Any) -> bool:
-        if self._term.search(str(subject)):
-            return True
-        elif self._args.debug:
-            print(f'Term "{self._term.pattern}" did not match against {type(subject)}: {subject!s}')
-        return False
+        if isinstance(subject, Commit):
+            match = bool(self._commit_terms)
+            for attr, term in self._commit_terms:
+                s = _get_attr(subject, attr) if attr else subject.message
+                if not term.search(str(s)):
+                    self._print_not_matched(term, s)
+                    match = False
+                    break
+        else:
+            s = str(subject)
+            match = bool(self._terms)
+            for term in self._terms:
+                if not term.search(s):
+                    self._print_not_matched(term, s)
+                    match = False
+                    break
+        return match
 
     def _all_heads(self, repo: Repo) -> Generator[Head, Any, None]:
         if self._args.local_only or not self._args.remote_only:
@@ -60,14 +89,14 @@ class Worker(RepoProcessor, TipHandler):
     def _all_commits(self, repo: Repo) -> HeadToCommitMap:
         return self._commits_per_head(self._all_heads(repo))
 
-    def _search_commit(self, repo: Repo, attrs: List[str]) -> str:
+    def _search_commit(self, repo: Repo) -> str:
         commits = self._all_commits(repo)
         found: CommitSet = set()
         for head in commits:
             for commit in commits[head]:
                 if commit not in found:
                     try:
-                        if self._check_subject(_get_attr(commit, attrs)):
+                        if self._check_subject(commit):
                             found.add(commit)
                     except AttributeError as exc:
                         print(str(exc))
@@ -129,12 +158,11 @@ class Worker(RepoProcessor, TipHandler):
             print('{}:\n{}\n'.format(os.path.basename(path), res))
 
     def _process(self, repo: Repo, path: str) -> None:
-        if self._what == 'commit':
-            self._print_res(path,
-                            self._search_commit(repo, self._attrs or ['message']))
-        elif self._what == 'branch':
+        if self._args.what == 'commit':
+            self._print_res(path, self._search_commit(repo))
+        elif self._args.what == 'branch':
             self._print_res(path, self._search_branch(repo))
-        elif self._what == 'repo':
+        elif self._args.what == 'repo':
             if self._args.term == 'tips':
                 self._print_res(path, self._find_all_tips(repo))
             elif self._args.term == 'ahead':
@@ -175,16 +203,17 @@ if __name__ == '__main__':
                                   'ahead of their remotes. Ano other term will be matched as regex against repo path.')
     branch_parser = subparsers.add_parser('branch',
                                           help='Search branch names')
-    branch_parser.add_argument('term', type=str,
+    branch_parser.add_argument('term', type=str, nargs="+",
                                help='Regex to match branch names')
     commit_parser = subparsers.add_parser('commit', help='Search for particular commits')
     commit_parser.add_argument('--list-attrs', action='store_true',
                                help='List all attributes of a commit')
-    commit_parser.add_argument('-a', '--attribute', type=str,
-                               help='Commit attribute. Path in doted notation: "name1[.name2[.name3]".'
-                                    'If not given, commit messages will be searched.')
-    commit_parser.add_argument('term', type=str, nargs='?',
-                               help='Regex to match string representations of a commit or its attributes')
+    commit_parser.add_argument('term', type=str, nargs='*',
+                               help='Search term in the form [attribute[.attr[.attr...]]::]regex. '
+                                    'The optional part tells which attribute of a commit to check, '
+                                    'and the regex is the search term. If your regex contains double colon, '
+                                    'prepend it with empty attribute specification like this "::reg::ex.+to\\search".'
+                                    'If several terms are given, they all should match for a commit to match.')
     args = parser.parse_args()
     if args.what is None:
         parser.print_help()
@@ -196,6 +225,4 @@ if __name__ == '__main__':
         if args.term is None:
             commit_parser.print_help()
             sys.exit(1)
-        if args.attribute:
-            args.what = f'commit.{args.attribute}'
     Worker.execute(args)
