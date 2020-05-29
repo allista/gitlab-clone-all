@@ -1,7 +1,10 @@
 #!/usr/bin/python3
 
+import argparse
 import os
 import re
+import sys
+from types import MemberDescriptorType
 from typing import Any, List, Optional, Generator, Set, Tuple
 
 from git import Repo, Head, Commit
@@ -141,13 +144,20 @@ class Worker(RepoProcessor, TipHandler):
                     print(path)
 
 
+def _print_commit_attrs():
+    attrs: List[str] = []
+    for name, obj in vars(Commit).items():
+        if name.startswith('_'):
+            continue
+        if isinstance(obj, property) or isinstance(obj, MemberDescriptorType):
+            attrs.append(f'{name} - {obj.__doc__.strip()}'
+                         if obj.__doc__ and not obj.__doc__.isspace()
+                         else name)
+    print('\n'.join(sorted(attrs)))
+
+
 if __name__ == '__main__':
-    import argparse
     parser = argparse.ArgumentParser(description='Search within all repositories')
-    parser.add_argument('what', type=str, help='What to search for: '
-                                               'repo, branch, commit[.attr[.attr]]')
-    parser.add_argument('term', type=str, help='Search term (regex) or a keyword for repo: '
-                                               'tips, ahead (implies -l)')
     parser.add_argument('-d', '--debug', action='store_true',
                         help='Enable additional debugging output')
     parser.add_argument('-l', '--local-only', action='store_true',
@@ -156,4 +166,36 @@ if __name__ == '__main__':
                         help='Only search within local branches')
     parser.add_argument('-R', '--remote', type=str, default='origin',
                         help='Remote to check if required')
-    Worker.execute(parser)
+    subparsers = parser.add_subparsers(dest='what')
+    repo_parser = subparsers.add_parser('repo',
+                                        help='Search repo for tip heads, or branches that are ahead of their remotes')
+    repo_parser.add_argument('term', type=str,
+                             help='If term is "tips", the search will return commit info of all the tips, '
+                                  'while "ahead" will return only those that are '
+                                  'ahead of their remotes. Ano other term will be matched as regex against repo path.')
+    branch_parser = subparsers.add_parser('branch',
+                                          help='Search branch names')
+    branch_parser.add_argument('term', type=str,
+                               help='Regex to match branch names')
+    commit_parser = subparsers.add_parser('commit', help='Search for particular commits')
+    commit_parser.add_argument('--list-attrs', action='store_true',
+                               help='List all attributes of a commit')
+    commit_parser.add_argument('-a', '--attribute', type=str,
+                               help='Commit attribute. Path in doted notation: "name1[.name2[.name3]".'
+                                    'If not given, commit messages will be searched.')
+    commit_parser.add_argument('term', type=str, nargs='?',
+                               help='Regex to match string representations of a commit or its attributes')
+    args = parser.parse_args()
+    if args.what is None:
+        parser.print_help()
+        sys.exit(1)
+    if args.what == 'commit':
+        if args.list_attrs:
+            _print_commit_attrs()
+            sys.exit()
+        if args.term is None:
+            commit_parser.print_help()
+            sys.exit(1)
+        if args.attribute:
+            args.what = f'commit.{args.attribute}'
+    Worker.execute(args)
