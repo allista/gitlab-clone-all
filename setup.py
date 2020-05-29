@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
         name='gitlab-clone-all',
-        version='1.1',
+        version='1.2',
         packages=['gitlab_clone_all_utils'],
         url='',
         license='MIT',
