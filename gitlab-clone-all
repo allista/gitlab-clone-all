@@ -36,6 +36,8 @@ if __name__ == '__main__':
                         help='Only clone projects from this namespace')
     parser.add_argument('-g', '--group', type=str,
                         help='Only clone projects from this group with path, for example "group" or "group/subgroup"')
+    parser.add_argument('-in', '--into-namespace', action='store_true',
+                        help='Clone into namespace subdirectory')
     parser.add_argument('-f', '--fresh', action='store_true',
                         help='Get the freshest branch')
     parser.add_argument('-v', '--api-version', type=int, default=4,
@@ -77,6 +79,8 @@ if __name__ == '__main__':
         num_projects = len(projects)
         for i, p in enumerate(projects):
             pdir = pathdir = p['name']
+            if args.into_namespace:
+                pdir = pathdir = p['path_with_namespace']
             if args.namespace:
                 ns = p['namespace']['name']
                 if args.namespace != p['namespace']['name']:
